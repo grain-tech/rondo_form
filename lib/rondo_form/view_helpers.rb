@@ -35,8 +35,14 @@ module RondoForm
     # - *f* :                  the form this should come in
     # - *association* :        the associated objects, e.g. :tasks, this should be the name of the <tt>has_many</tt> relation.
     # - *render_options*:      options to be passed to <tt>render</tt>
-    #   - partial: 'file_name'
-    #   - locals: { hash_of: 'local variables for rendered partial' }
+    #   - partial: 'file_name' (for traditional partial rendering)
+    #   - component: ComponentClass (for Phlex component rendering)
+    #   - locals: { hash_of: 'local variables for rendered partial/component' }
+    #   - build_object: Proc to customize object initialization
+    #   - object_params: Hash of attributes to set on the new object
+    #   - discriminator_field: field name for STI discrimination
+    #   - discriminator_value: value for STI discrimination
+    #   - template_id: custom template element ID
     # - *html_options*:     html options to be passed to <tt>link_to</tt> (see <tt>link_to</tt>)
     # - *&block*:              see <tt>link_to</tt>
 
@@ -90,10 +96,33 @@ module RondoForm
     # :nodoc:
     def render_association(association, f, new_object, render_options)
       locals = render_options.delete(:locals) || {}
-      render_options[:partial] = "#{association.to_s.singularize}_fields" unless render_options[:partial]
-      f.fields_for(association, new_object, :child_index => "new_#{association}") do |builder|
-        locals.store(:f, builder)
-        render(render_options[:partial], locals)
+      
+      # Check if a component class is provided
+      if render_options[:component]
+        f.fields_for(association, new_object, :child_index => "new_#{association}") do |builder|
+          # Instantiate and render the Phlex component
+          component_class = render_options[:component]
+          component_instance = component_class.new(
+            form_builder: builder,
+            component: new_object,
+            **locals
+          )
+          # Render the component to HTML string
+          if component_instance.respond_to?(:call)
+            # For Phlex components
+            component_instance.call
+          else
+            # Fallback for other component frameworks
+            render component_instance
+          end
+        end
+      else
+        # Fallback to partial rendering for backward compatibility
+        render_options[:partial] = "#{association.to_s.singularize}_fields" unless render_options[:partial]
+        f.fields_for(association, new_object, :child_index => "new_#{association}") do |builder|
+          locals.store(:f, builder)
+          render(render_options[:partial], locals)
+        end
       end
     end
   end

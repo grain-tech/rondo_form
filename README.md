@@ -90,6 +90,51 @@ end
 
 params `:_destroy` allow to delete tasks and `:id` allow to update tasks on update action
 
+### Using Phlex Components
+
+RondoForm supports using Phlex components instead of partials for rendering association fields. This is useful when you're using Phlex for your view layer.
+
+#### Example with Phlex Component
+
+First, create a Phlex component for your fields:
+
+```ruby
+# app/components/task_fields_component.rb
+class TaskFieldsComponent < ApplicationComponent
+  attr_reader :form_builder, :component
+
+  def initialize(form_builder:, component:, **locals)
+    @form_builder = form_builder
+    @component = component
+    @locals = locals
+  end
+
+  def template
+    div(class: "task-field") do
+      render form_builder.input(:description)
+      render form_builder.input(:done, as: :boolean)
+      render link_to_remove_association("Remove Task", form_builder)
+    end
+  end
+end
+```
+
+Then use it in your form:
+
+```erb
+<%= link_to_add_association "Add Task", f, :tasks,
+    render_options: {
+      component: TaskFieldsComponent,
+      locals: { some_option: true }
+    }
+%>
+```
+
+The component will receive:
+- `form_builder`: The form builder for the association
+- `component`: The new object instance
+- Any additional locals passed in the `locals` hash
+
 ### Demo
 View details implement for manual Rails form at this PR [dynamic nested form with rondo_form](https://github.com/hungle00/rails-opus/pull/15/files)
 
@@ -107,9 +152,15 @@ link_to_add_association(form_builder, render_options, html_options, &block)
 ```
 
 ### Options
-- `render_options: hash containing options for Rails' render helper` - This is passed to the Rails `render` helper to
-provide the options that are desired when rendering your association fields. If no special requirements are needed,
-can be passed as `nil` or and empty hash `{}`.
+- `render_options: hash containing options for rendering` - Options for rendering the association fields:
+  - `:partial` - Name of the partial to render (defaults to `{association}_fields`)
+  - `:component` - Phlex component class to render instead of a partial
+  - `:locals` - Hash of local variables to pass to the partial/component
+  - `:build_object` - Proc to customize object initialization
+  - `:object_params` - Hash of attributes to set on the new object
+  - `:discriminator_field` - Field name for STI discrimination
+  - `:discriminator_value` - Value for STI discrimination
+  - `:template_id` - Custom template element ID
 
 - `html_options: hash containing options for Rails' link_to helper` - This is passed to the Rails `link_to` helper to
 provide the options that are desired when rendering your association fields. If no special requirements are needed,
