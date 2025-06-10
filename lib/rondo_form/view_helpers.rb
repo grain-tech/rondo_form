@@ -56,9 +56,31 @@ module RondoForm
         html_options[:'data-associations'] = association.to_s.pluralize
         html_options[:'data-action'] = "click->nested-rondo#addField"
 
-        new_object = f.object.class.reflect_on_association(association).klass.new
+        # Support for custom object initialization
+        if render_options[:build_object].is_a?(Proc)
+          new_object = render_options[:build_object].call(f.object)
+        else
+          new_object = f.object.class.reflect_on_association(association).klass.new
+        end
+        
+        # Allow discriminator values to be set
+        if render_options[:object_params].is_a?(Hash)
+          render_options[:object_params].each do |key, value|
+            new_object.send("#{key}=", value) if new_object.respond_to?("#{key}=")
+          end
+        end
+        
         model_name = new_object.class.name.underscore
-        hidden_div = content_tag("template", id: "#{model_name}_fields_template", data: {'nested-rondo_target': 'template'}) do
+        template_id = render_options[:template_id] || "#{model_name}_fields_template"
+        
+        # Store discriminator data in template for JavaScript access
+        template_data = {'nested-rondo_target': 'template'}
+        if render_options[:discriminator_field]
+          template_data['discriminator-field'] = render_options[:discriminator_field]
+          template_data['discriminator-value'] = render_options[:discriminator_value]
+        end
+        
+        hidden_div = content_tag("template", id: template_id, data: template_data) do
           render_association(association, f, new_object, render_options)
         end
         hidden_div.html_safe + link_to(name, '', html_options )
