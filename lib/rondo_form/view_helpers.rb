@@ -99,7 +99,7 @@ module RondoForm
       
       # Check if a component class is provided
       if render_options[:component]
-        f.fields_for(association, new_object, :child_index => "new_#{association}") do |builder|
+        output = f.fields_for(association, new_object, :child_index => "new_#{association}") do |builder|
           # Instantiate and render the Phlex component
           component_class = render_options[:component]
           component_instance = component_class.new(
@@ -113,9 +113,10 @@ module RondoForm
             component_instance.call
           else
             # Fallback for other component frameworks
-            render component_instance
+            component_instance.to_s
           end
         end
+        output
       else
         # Fallback to partial rendering for backward compatibility
         render_options[:partial] = "#{association.to_s.singularize}_fields" unless render_options[:partial]
